@@ -3,48 +3,27 @@ const request = require("supertest");
 const app = require("../service");
 const { DB } = require("../database/database.js");
 const { Role } = require("../model/model");
+const { randomName } = require("./testHelpers");
+const {
+  testUser,
+  registerTestUser,
+  getTestUserId,
+  getTestUserAuthToken,
+} = require("./testHelpers");
 
-const testUser = { name: "pizza diner", email: "reg@test.com", password: "a" };
-
-let testUserAuthToken;
 let adminUser;
 let testUserId;
+let testUserAuthToken;
 
-function randomName() {
-  return Math.random().toString(36).substring(2, 12);
-}
-
-async function createAdminUser() {
-  let user = { password: "toomanysecrets", roles: [{ role: Role.Admin }] };
-  user.name = randomName();
-  user.email = user.name + "@admin.com";
-
-  await DB.addUser(user);
-
-  user.password = "toomanysecrets";
-  return user;
-}
-
-async function getAdminAuthToken() {
-  const { email, password } = adminUser;
-  const loginRes = await request(app)
-    .put("/api/auth")
-    .send({ email, password });
-  const { token } = loginRes.body;
-  return token;
-}
-
-async function registerTestUser() {
-  testUser.email = Math.random().toString(36).substring(2, 12) + "@test.com";
-  const registerRes = await request(app).post("/api/auth").send(testUser);
-  testUserAuthToken = registerRes.body.token;
-  testUserId = registerRes.body.user.id;
+async function assignTestValues() {
+  await registerTestUser();
+  testUserId = getTestUserId();
+  testUserAuthToken = getTestUserAuthToken();
 }
 
 describe("authRouter", () => {
   beforeAll(async () => {
-    await registerTestUser();
-    adminUser = await createAdminUser();
+    await assignTestValues();
   });
 
   test("register invalid", async () => {
@@ -83,18 +62,18 @@ describe("authRouter", () => {
   });
 
   test("update user", async () => {
-    await registerTestUser();
+    await assignTestValues();
     const responseRes = await request(app)
       .put("/api/auth/" + testUserId)
       .set("Authorization", "Bearer " + testUserAuthToken)
       .send({ email: testUser.email, password: testUser.password });
     expect(responseRes.status).toBe(200);
     const { password, ...user } = { ...testUser, roles: [{ role: "diner" }] };
-    expect(responseRes.body.user).toMatchObject(user);
+    expect(responseRes.body).toMatchObject(user);
   });
 
   test("update user wrong id", async () => {
-    await registerTestUser();
+    await assignTestValues();
     const responseRes = await request(app)
       .put("/api/auth/" + 1)
       .set("Authorization", "Bearer " + testUserAuthToken)
