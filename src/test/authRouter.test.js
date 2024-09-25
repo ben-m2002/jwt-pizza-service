@@ -1,9 +1,7 @@
-const { authRouter, setAuthUser } = require("../routes/authRouter");
 const request = require("supertest");
 const app = require("../service");
 const { DB } = require("../database/database.js");
-const { Role } = require("../model/model");
-const { randomName } = require("./testHelpers");
+
 const {
   testUser,
   registerTestUser,
@@ -11,7 +9,6 @@ const {
   getTestUserAuthToken,
 } = require("./testHelpers");
 
-let adminUser;
 let testUserId;
 let testUserAuthToken;
 
@@ -23,6 +20,7 @@ async function assignTestValues() {
 
 describe("authRouter", () => {
   beforeAll(async () => {
+    await DB.initializeDatabase();
     await assignTestValues();
   });
 
@@ -42,7 +40,8 @@ describe("authRouter", () => {
     expect(loginRes.body.token).toMatch(
       /^[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*$/,
     );
-    const { password, ...user } = { ...testUser, roles: [{ role: "diner" }] };
+    const { ...user } = { ...testUser, roles: [{ role: "diner" }] };
+    delete user.password;
     expect(loginRes.body.user).toMatchObject(user);
   });
 
@@ -68,7 +67,8 @@ describe("authRouter", () => {
       .set("Authorization", "Bearer " + testUserAuthToken)
       .send({ email: testUser.email, password: testUser.password });
     expect(responseRes.status).toBe(200);
-    const { password, ...user } = { ...testUser, roles: [{ role: "diner" }] };
+    const { ...user } = { ...testUser, roles: [{ role: "diner" }] };
+    delete user.password;
     expect(responseRes.body).toMatchObject(user);
   });
 
@@ -80,5 +80,13 @@ describe("authRouter", () => {
       .send({ email: testUser.email, password: testUser.password });
     expect(responseRes.status).toBe(403);
     expect(responseRes.body.message).toBe("unauthorized");
+  });
+
+  test("bad database", async () => {
+    await DB.initializeDatabase(true);
+  });
+
+  afterAll(async () => {
+    await DB.dropDatabase();
   });
 });
