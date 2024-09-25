@@ -1,4 +1,3 @@
-const { franchiseRouter } = require("../routes/franchiseRouter");
 const request = require("supertest");
 const { randomName } = require("./testHelpers");
 const app = require("../service");
@@ -9,13 +8,10 @@ const {
   getTestUserId,
   getTestUserAuthToken,
   createAdminUser,
-  getAdminAuthToken,
   getAdminUserId,
   getAdminUser,
   getAdminUserAuthToken,
 } = require("./testHelpers");
-
-const { Role } = require("../model/model");
 
 let adminFranchiseId;
 let adminStoreId;
@@ -71,23 +67,24 @@ async function createAdminUserStore() {
 
 describe("franchiseRouter", () => {
   beforeAll(async () => {
+    await DB.initializeDatabase();
     await registerTestUser();
     await createAdminUser();
   });
 
-  test("get franchises", async () => {
-    const franchiseRes = await request(app).get("/api/franchise");
+  test("create franchise", async () => {
+    const franchiseRes = await createAdminUserFranchise();
     expect(franchiseRes.status).toBe(200);
-    expect(franchiseRes.body).toBeDefined();
+    expect(franchiseRes.body.name).toBeDefined();
+    expect(franchiseRes.body.admins).toBeDefined();
   });
 
-  test("get user franchises", async () => {
+  test("get admin user franchises", async () => {
     await createAdminUserFranchise();
     const franchiseRes = await request(app)
-      .get(`/api/franchise/${getTestUserId()}`)
-      .set("Authorization", `Bearer ${getTestUserAuthToken()}`);
+      .get(`/api/franchise/${getAdminUserId()}`)
+      .set("Authorization", `Bearer ${getAdminUserAuthToken()}`);
     expect(franchiseRes.status).toBe(200);
-    expect(franchiseRes.body).toMatchObject([]);
   });
 
   test("get user franchises bad auth", async () => {
@@ -102,12 +99,27 @@ describe("franchiseRouter", () => {
     expect(franchiseRes.status).toBe(403);
   });
 
+  test("get franchises", async () => {
+    const franchiseRes = await request(app).get("/api/franchise");
+    expect(franchiseRes.status).toBe(200);
+    expect(franchiseRes.body).toBeDefined();
+  });
+
   test("delete admin franchise", async () => {
     const franchiseRes = await request(app)
       .delete(`/api/franchise/${adminFranchiseId}`)
       .set("Authorization", `Bearer ${getAdminUserAuthToken()}`);
     expect(franchiseRes.status).toBe(200);
     expect(franchiseRes.body.message).toBe("franchise deleted");
+  });
+
+  test("empty admin franchise", async () => {
+    await createAdminUserFranchise();
+    const franchiseRes = await request(app)
+      .get(`/api/franchise/${getTestUserId()}`)
+      .set("Authorization", `Bearer ${getTestUserAuthToken()}`);
+    expect(franchiseRes.status).toBe(200);
+    expect(franchiseRes.body).toEqual([]);
   });
 
   test("delete admin franchise bad auth", async () => {
@@ -141,5 +153,9 @@ describe("franchiseRouter", () => {
       .delete(`/api/franchise/${franchiseId}/store/${storeId}`)
       .set("Authorization", `Bearer ${getTestUserAuthToken()}`);
     expect(storeRes.status).toBe(403);
+  });
+
+  afterAll(async () => {
+    await DB.dropDatabase();
   });
 });
