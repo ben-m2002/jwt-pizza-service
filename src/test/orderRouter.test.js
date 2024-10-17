@@ -115,7 +115,5 @@ describe("orderRouter", () => {
     });
   });
 
-  afterAll(async () => {
-    await DB.dropDatabase();
-  });
+  afterAll(async () => {});
 });
