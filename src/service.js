@@ -5,8 +5,6 @@ const franchiseRouter = require("./routes/franchiseRouter.js");
 const version = require("./version.json");
 const config = require("./config.js");
 
-////// This is not important, and it is still not important
-
 const app = express();
 app.use(express.json());
 app.use(setAuthUser);
