@@ -28,6 +28,11 @@
       "Default": "",
       "AllowedPattern": "^(?:vpc-[0-9a-f]{8,17}|)$",
       "ConstraintDescription": "VPC ID must begin with 'vpc-' and have a valid uuid"
+    },
+    "DBName" : {
+      "Type" : "String",
+      "Description" : "The name of the RDS Instance",
+      "Default" : ""
     }
   },
   "Resources": {
