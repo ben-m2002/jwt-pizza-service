@@ -1,5 +1,4 @@
 const app = require("./service.js");
-const metrics = require("./metrics");
 const measureLatency = require("./measureLatency");
 
 app.use(measureLatency);
