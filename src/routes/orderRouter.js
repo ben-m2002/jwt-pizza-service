@@ -3,6 +3,8 @@ const config = require("../config.js");
 const { Role, DB } = require("../database/database.js");
 const { authRouter } = require("./authRouter.js");
 const { asyncHandler, StatusCodeError } = require("../endpointHelper.js");
+const measurePizzaLatency = require("../measureLatency.js");
+const metrics = require("../metrics");
 
 const orderRouter = express.Router();
 
@@ -80,6 +82,7 @@ orderRouter.endpoints = [
 orderRouter.get(
   "/menu",
   asyncHandler(async (req, res) => {
+    metrics.incrementRequests("GET");
     res.send(await DB.getMenu());
   }),
 );
@@ -89,10 +92,13 @@ orderRouter.put(
   "/menu",
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
+    metrics.incrementRequests("PUT");
+    metrics.updateActiveUsers(authRouter.authenticateToken);
     if (!req.user.isRole(Role.Admin)) {
+      metrics.incrementAuthFailures();
       throw new StatusCodeError("unable to add menu item", 403);
     }
-
+    metrics.incrementAuthSuccesses();
     const addMenuItemReq = req.body;
     await DB.addMenuItem(addMenuItemReq);
     res.send(await DB.getMenu());
@@ -104,6 +110,8 @@ orderRouter.get(
   "/",
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
+    metrics.incrementRequests("GET");
+    metrics.updateActiveUsers(authRouter.authenticateToken);
     res.json(await DB.getOrders(req.user, req.query.page));
   }),
 );
@@ -112,7 +120,10 @@ orderRouter.get(
 orderRouter.post(
   "/",
   authRouter.authenticateToken,
+  measurePizzaLatency,
   asyncHandler(async (req, res) => {
+    metrics.incrementRequests("POST");
+    metrics.updateActiveUsers(authRouter.authenticateToken);
     const orderReq = req.body;
     const order = await DB.addDinerOrder(req.user, orderReq);
     const r = await fetch(`${config.factory.url}/api/order`, {
@@ -128,8 +139,11 @@ orderRouter.post(
     });
     const j = await r.json();
     if (r.ok) {
+      metrics.incrementPizzasSold();
+      metrics.updateRevenue(0.004);
       res.send({ order, jwt: j.jwt, reportUrl: j.reportUrl });
     } else {
+      metrics.incrementCreationFailed();
       res.status(500).send({
         message: "Failed to fulfill order at factory",
         reportUrl: j.reportUrl,

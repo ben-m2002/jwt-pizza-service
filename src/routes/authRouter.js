@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const config = require("../config.js");
 const { asyncHandler } = require("../endpointHelper.js");
 const { DB, Role } = require("../database/database.js");
+const metrics = require("../metrics.js");
 
 const authRouter = express.Router();
 
@@ -90,7 +91,9 @@ authRouter.post(
   "/",
   asyncHandler(async (req, res) => {
     const { name, email, password } = req.body;
+    metrics.incrementRequests("POST");
     if (!name || !email || !password) {
+      metrics.incrementAuthFailures();
       return res
         .status(400)
         .json({ message: "name, email, and password are required" });
@@ -102,6 +105,8 @@ authRouter.post(
       roles: [{ role: Role.Diner }],
     });
     const auth = await setAuth(user);
+    metrics.updateActiveUsers(auth);
+    metrics.incrementAuthSuccesses();
     res.json({ user: user, token: auth });
   }),
 );
@@ -110,9 +115,12 @@ authRouter.post(
 authRouter.put(
   "/",
   asyncHandler(async (req, res) => {
+    metrics.incrementRequests("PUT");
     const { email, password } = req.body;
     const user = await DB.getUser(email, password);
     const auth = await setAuth(user);
+    metrics.updateActiveUsers(auth);
+    metrics.incrementAuthSuccesses();
     res.json({ user: user, token: auth });
   }),
 );
@@ -122,7 +130,8 @@ authRouter.delete(
   "/",
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    clearAuth(req);
+    metrics.incrementRequests("DELETE");
+    await clearAuth(req);
     res.json({ message: "logout successful" });
   }),
 );
@@ -132,13 +141,15 @@ authRouter.put(
   "/:userId",
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
+    metrics.incrementRequests("PUT");
     const { email, password } = req.body;
     const userId = Number(req.params.userId);
     const user = req.user;
     if (user.id !== userId && !user.isRole(Role.Admin)) {
+      metrics.incrementAuthFailures();
       return res.status(403).json({ message: "unauthorized" });
     }
-
+    metrics.incrementAuthSuccesses();
     const updatedUser = await DB.updateUser(userId, email, password);
     res.json(updatedUser);
   }),
