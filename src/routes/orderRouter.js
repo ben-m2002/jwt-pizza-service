@@ -120,7 +120,6 @@ orderRouter.get(
 orderRouter.post(
   "/",
   authRouter.authenticateToken,
-  measurePizzaLatency,
   asyncHandler(async (req, res) => {
     metrics.incrementRequests("POST");
     metrics.updateActiveUsers(authRouter.authenticateToken);
@@ -138,8 +137,9 @@ orderRouter.post(
       }),
     });
     const j = await r.json();
+    console.log(order);
     if (r.ok) {
-      metrics.incrementPizzasSold();
+      metrics.updatePizzasSold(order.items.length);
       metrics.updateRevenue(0.004);
       res.send({ order, jwt: j.jwt, reportUrl: j.reportUrl });
     } else {

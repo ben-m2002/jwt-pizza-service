@@ -108,8 +108,8 @@ class Metrics {
     this.diffrentAuths.add(auth);
   }
 
-  incrementPizzasSold() {
-    this.pizzasSold++;
+  updatePizzasSold(numPizzas) {
+    this.pizzasSold += numPizzas;
   }
 
   incrementCreationFailed() {

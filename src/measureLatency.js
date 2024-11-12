@@ -7,6 +7,9 @@ const measureLatency = (req, res, next) => {
     const [seconds, nanoseconds] = process.hrtime(start);
     const durationInMilliseconds = seconds * 1000 + nanoseconds / 1e6;
     metrics.updateServiceLatency(durationInMilliseconds);
+    if (req.path === "/api/order") {
+      metrics.updatePizzaLatency(durationInMilliseconds);
+    }
   });
 
   next();
