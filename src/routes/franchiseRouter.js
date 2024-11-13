@@ -3,8 +3,12 @@ const { DB, Role } = require("../database/database.js");
 const { authRouter } = require("./authRouter.js");
 const { StatusCodeError, asyncHandler } = require("../endpointHelper.js");
 const metrics = require("../metrics");
+const Logger = require("../Logger");
 
 const franchiseRouter = express.Router();
+
+franchiseRouter.use(Logger.httpLogger);
+franchiseRouter.use(metrics.measureLatency);
 
 franchiseRouter.endpoints = [
   {

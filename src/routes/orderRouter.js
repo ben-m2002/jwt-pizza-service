@@ -4,8 +4,12 @@ const { Role, DB } = require("../database/database.js");
 const { authRouter } = require("./authRouter.js");
 const { asyncHandler, StatusCodeError } = require("../endpointHelper.js");
 const metrics = require("../metrics");
+const Logger = require("../Logger");
 
 const orderRouter = express.Router();
+orderRouter.use(Logger.httpLogger);
+orderRouter.use(metrics.measureLatency);
+orderRouter.use(metrics.measurePizzaLatency);
 
 orderRouter.endpoints = [
   {
@@ -136,7 +140,7 @@ orderRouter.post(
       }),
     });
     const j = await r.json();
-    console.log(order);
+    Logger.log("info", "FactoryOrder", { order, j, jwt: j.jwt });
     if (r.ok) {
       metrics.updatePizzasSold(order.items.length);
       metrics.updateRevenue(0.004);

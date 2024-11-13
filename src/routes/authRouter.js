@@ -4,8 +4,12 @@ const config = require("../config.js");
 const { asyncHandler } = require("../endpointHelper.js");
 const { DB, Role } = require("../database/database.js");
 const metrics = require("../metrics.js");
+const Logger = require("../Logger");
 
 const authRouter = express.Router();
+
+authRouter.use(Logger.httpLogger);
+authRouter.use(metrics.measureLatency);
 
 authRouter.endpoints = [
   {
@@ -73,6 +77,7 @@ async function setAuthUser(req, res, next) {
       }
     } catch {
       req.user = null;
+      Logger.log("error", "error", { message: "Invalid token" });
     }
   }
   next();

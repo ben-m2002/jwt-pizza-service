@@ -15,6 +15,12 @@ function getMemoryUsagePercentage() {
   return memoryUsage.toFixed(2);
 }
 
+function getLatencyInMilliseconds() {
+  const start = process.hrtime();
+  const [seconds, nanoseconds] = process.hrtime(start);
+  return seconds * 1000 + nanoseconds / 1e6;
+}
+
 class Metrics {
   constructor() {
     this.requestCounts = {
@@ -34,7 +40,9 @@ class Metrics {
     this.revenue = 0;
 
     this.averageServiceLatency = 0;
+    this.sumServiceLatency = 0;
     this.averagePizzaLatency = 0;
+    this.sumPizzaLatency = 0;
 
     // Periodically send metrics to Grafana
     const timer = setInterval(() => {
@@ -90,6 +98,20 @@ class Metrics {
     timer.unref();
   }
 
+  measureLatency(req, res, next) {
+    res.on("finish", () => {
+      metrics.updateServiceLatency(getLatencyInMilliseconds());
+    });
+    next();
+  }
+
+  measurePizzaLatency(req, res, next) {
+    res.on("finish", () => {
+      metrics.updatePizzaLatency(getLatencyInMilliseconds());
+    });
+    next();
+  }
+
   incrementRequests(method) {
     if (this.requestCounts[method] !== undefined) {
       this.requestCounts[method]++;
@@ -125,15 +147,17 @@ class Metrics {
     Object.keys(this.requestCounts).forEach((method) => {
       totalRequests += this.requestCounts[method];
     });
-    this.averageServiceLatency =
-      (this.averageServiceLatency * (totalRequests - 1) + latency) /
-      totalRequests;
+    this.sumServiceLatency += latency;
+    this.averageServiceLatency = this.sumServiceLatency / totalRequests;
   }
 
   updatePizzaLatency(latency) {
     let totalPizzas = this.pizzasSold + this.creationFailed;
-    this.averagePizzaLatency =
-      (this.averagePizzaLatency * (totalPizzas - 1) + latency) / totalPizzas;
+    this.sumPizzaLatency += latency;
+    if (totalPizzas === 0) {
+      totalPizzas = 1;
+    }
+    this.averagePizzaLatency = this.sumPizzaLatency / totalPizzas;
   }
 
   sendMetricToGrafana(metricPrefix, httpMethod, metricName, metricValue) {
@@ -145,7 +169,8 @@ class Metrics {
     })
       .then((response) => {
         if (!response.ok) {
-          console.error("Failed to push metrics data to Grafana");
+          console.log(metric);
+          console.error("Failed to push metrics data to Grafana Prom");
         } else {
           //console.log(`Pushed ${metric}`);
         }

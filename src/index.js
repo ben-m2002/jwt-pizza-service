@@ -1,7 +1,7 @@
 const app = require("./service.js");
-const measureLatency = require("./measureLatency");
+const express = require("express");
 
-app.use(measureLatency);
+app.use(express.json());
 
 const port = process.argv[2] || 3000;
 app.listen(port, () => {
