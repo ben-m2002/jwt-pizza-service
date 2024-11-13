@@ -43,7 +43,7 @@ class Logger {
 
     function sanitizeObject(obj) {
       for (let key in obj) {
-        if (obj.hasOwnProperty(key)) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
           if (sensitiveFields.includes(key.toLowerCase())) {
             obj[key] = "*****"; // Mask sensitive field
           } else if (typeof obj[key] === "object" && obj[key] !== null) {
@@ -61,6 +61,7 @@ class Logger {
           return JSON.stringify(parsed);
         }
       } catch (e) {
+        console.log(e);
         return str;
       }
     }
