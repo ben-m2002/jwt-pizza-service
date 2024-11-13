@@ -47,7 +47,7 @@ class Logger {
           if (sensitiveFields.includes(key.toLowerCase())) {
             obj[key] = "*****"; // Mask sensitive field
           } else if (typeof obj[key] === "object" && obj[key] !== null) {
-            sanitizeObject(obj[key]); // Recursively sanitize nested objects
+            sanitizeObject(obj[key]);
           }
         }
       }
