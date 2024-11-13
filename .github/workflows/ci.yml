@@ -169,6 +169,10 @@ jobs:
          task-definition: ${{ steps.task-def.outputs.task-definition }}
          service: jwt-pizza-service
          cluster: jwt-pizza-service
-         wait-for-service-stability: false     
+         wait-for-service-stability: false
+
+     - name: Annotate deployment in Grafana
+       run: |
+        curl -s -X POST https://benm2002.grafana.net/api/annotations -H "Authorization: Bearer ${{ secrets.GRAFANA_ACCESS_TOKEN }}" -H "Content-Type:application/json" -d '{"dashboardUID":" de3ny9i9wf2tcc", "panelId":1, "tags":["backend","production"], "text":"Version '"$version"' deployed" }'
 
   
