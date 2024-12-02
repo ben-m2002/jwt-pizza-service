@@ -141,6 +141,20 @@ authRouter.delete(
   }),
 );
 
+//// Enable and disable chaos
+authRouter.put(
+  "/chaos/:state",
+  authRouter.authenticateToken,
+  asyncHandler(async (req, res) => {
+    if (!req.user.isRole(Role.Admin)) {
+      throw new StatusCodeError("unknown endpoint", 404);
+    }
+
+    enableChaos = req.params.state === "true";
+    res.json({ chaos: enableChaos });
+  }),
+);
+
 // updateUser
 authRouter.put(
   "/:userId",
