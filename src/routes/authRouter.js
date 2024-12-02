@@ -5,6 +5,7 @@ const { asyncHandler } = require("../endpointHelper.js");
 const { DB, Role } = require("../database/database.js");
 const metrics = require("../metrics.js");
 const Logger = require("../Logger");
+const { StatusCodeError } = require("../endpointHelper");
 
 const authRouter = express.Router();
 
@@ -150,7 +151,7 @@ authRouter.put(
       throw new StatusCodeError("unknown endpoint", 404);
     }
 
-    enableChaos = req.params.state === "true";
+    let enableChaos = req.params.state === "true";
     res.json({ chaos: enableChaos });
   }),
 );
