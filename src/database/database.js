@@ -5,6 +5,7 @@ const { StatusCodeError } = require("../endpointHelper.js");
 const { Role } = require("../model/model.js");
 const dbModel = require("./dbModel.js");
 const Logger = require("../Logger");
+const metrics = require("../metrics.js");
 
 class DB {
   constructor() {
@@ -112,6 +113,7 @@ class DB {
       });
       const user = userResult[0];
       if (!user || !(await bcrypt.compare(password, user.password))) {
+        metrics.incrementAuthFailures();
         throw new StatusCodeError("unknown user", 404);
       }
       const roleResult = await this.query(
