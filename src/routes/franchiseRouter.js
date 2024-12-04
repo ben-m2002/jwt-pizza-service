@@ -77,7 +77,14 @@ franchiseRouter.endpoints = [
 franchiseRouter.get(
   "/",
   asyncHandler(async (req, res) => {
-    res.json(await DB.getFranchises(req.user));
+    try {
+      res.json(await DB.getFranchises(req.user));
+    } catch (error) {
+      Logger.log("error", "error", { message: error.message });
+      res
+        .status(500)
+        .json({ message: "An error occurred while fetching franchises" });
+    }
   }),
 );
 
@@ -86,14 +93,21 @@ franchiseRouter.get(
   "/:userId",
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    metrics.incrementRequests("GET");
-    metrics.updateActiveUsers(authRouter.authenticateToken);
-    let result = [];
-    const userId = Number(req.params.userId);
-    if (req.user.id === userId || req.user.isRole(Role.Admin)) {
-      result = await DB.getUserFranchises(userId);
+    try {
+      metrics.incrementRequests("GET");
+      metrics.updateActiveUsers(authRouter.authenticateToken);
+      let result = [];
+      const userId = Number(req.params.userId);
+      if (req.user.id === userId || req.user.isRole(Role.Admin)) {
+        result = await DB.getUserFranchises(userId);
+      }
+      res.json(result);
+    } catch (error) {
+      Logger.log("error", "error", { message: error.message });
+      res
+        .status(500)
+        .json({ message: "An error occurred while fetching user franchises" });
     }
-    res.json(result);
   }),
 );
 
@@ -102,15 +116,25 @@ franchiseRouter.post(
   "/",
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    metrics.incrementRequests("POST");
-    metrics.updateActiveUsers(authRouter.authenticateToken);
-    if (!req.user.isRole(Role.Admin)) {
-      metrics.incrementAuthFailures();
-      throw new StatusCodeError("unable to create a franchise", 403);
+    try {
+      metrics.incrementRequests("POST");
+      metrics.updateActiveUsers(authRouter.authenticateToken);
+      if (!req.user.isRole(Role.Admin)) {
+        metrics.incrementAuthFailures();
+        throw new StatusCodeError("unable to create a franchise", 403);
+      }
+      metrics.incrementAuthSuccesses();
+      const franchise = req.body;
+      res.send(await DB.createFranchise(franchise));
+    } catch (error) {
+      Logger.log("error", "error", { message: error.message });
+      res
+        .status(error.statusCode || 500)
+        .json({
+          message:
+            error.message || "An error occurred while creating the franchise",
+        });
     }
-    metrics.incrementAuthSuccesses();
-    const franchise = req.body;
-    res.send(await DB.createFranchise(franchise));
   }),
 );
 
@@ -118,15 +142,25 @@ franchiseRouter.post(
 franchiseRouter.delete(
   "/:franchiseId",
   asyncHandler(async (req, res) => {
-    metrics.incrementRequests("DELETE");
-    if (!req.user.isRole(Role.Admin)) {
-      metrics.incrementAuthFailures();
-      throw new StatusCodeError("unable to delete a franchise", 403);
+    try {
+      metrics.incrementRequests("DELETE");
+      if (!req.user.isRole(Role.Admin)) {
+        metrics.incrementAuthFailures();
+        throw new StatusCodeError("unable to delete a franchise", 403);
+      }
+      metrics.incrementAuthSuccesses();
+      const franchiseId = Number(req.params.franchiseId);
+      await DB.deleteFranchise(franchiseId);
+      res.json({ message: "franchise deleted" });
+    } catch (error) {
+      Logger.log("error", "error", { message: error.message });
+      res
+        .status(error.statusCode || 500)
+        .json({
+          message:
+            error.message || "An error occurred while deleting the franchise",
+        });
     }
-    metrics.incrementAuthSuccesses();
-    const franchiseId = Number(req.params.franchiseId);
-    await DB.deleteFranchise(franchiseId);
-    res.json({ message: "franchise deleted" });
   }),
 );
 
@@ -135,20 +169,30 @@ franchiseRouter.post(
   "/:franchiseId/store",
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    metrics.incrementRequests("POST");
-    metrics.updateActiveUsers(authRouter.authenticateToken);
-    const franchiseId = Number(req.params.franchiseId);
-    const franchise = await DB.getFranchise({ id: franchiseId });
-    if (
-      !franchise ||
-      (!req.user.isRole(Role.Admin) &&
-        !franchise.admins.some((admin) => admin.id === req.user.id))
-    ) {
-      metrics.incrementAuthFailures();
-      throw new StatusCodeError("unable to create a store", 403);
+    try {
+      metrics.incrementRequests("POST");
+      metrics.updateActiveUsers(authRouter.authenticateToken);
+      const franchiseId = Number(req.params.franchiseId);
+      const franchise = await DB.getFranchise({ id: franchiseId });
+      if (
+        !franchise ||
+        (!req.user.isRole(Role.Admin) &&
+          !franchise.admins.some((admin) => admin.id === req.user.id))
+      ) {
+        metrics.incrementAuthFailures();
+        throw new StatusCodeError("unable to create a store", 403);
+      }
+      metrics.incrementAuthSuccesses();
+      res.send(await DB.createStore(franchise.id, req.body));
+    } catch (error) {
+      Logger.log("error", "error", { message: error.message });
+      res
+        .status(error.statusCode || 500)
+        .json({
+          message:
+            error.message || "An error occurred while creating the store",
+        });
     }
-    metrics.incrementAuthSuccesses();
-    res.send(await DB.createStore(franchise.id, req.body));
   }),
 );
 
@@ -157,22 +201,32 @@ franchiseRouter.delete(
   "/:franchiseId/store/:storeId",
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    metrics.incrementRequests("DELETE");
-    metrics.updateActiveUsers(authRouter.authenticateToken);
-    const franchiseId = Number(req.params.franchiseId);
-    const franchise = await DB.getFranchise({ id: franchiseId });
-    if (
-      !franchise ||
-      (!req.user.isRole(Role.Admin) &&
-        !franchise.admins.some((admin) => admin.id === req.user.id))
-    ) {
-      metrics.incrementAuthFailures();
-      throw new StatusCodeError("unable to delete a store", 403);
+    try {
+      metrics.incrementRequests("DELETE");
+      metrics.updateActiveUsers(authRouter.authenticateToken);
+      const franchiseId = Number(req.params.franchiseId);
+      const franchise = await DB.getFranchise({ id: franchiseId });
+      if (
+        !franchise ||
+        (!req.user.isRole(Role.Admin) &&
+          !franchise.admins.some((admin) => admin.id === req.user.id))
+      ) {
+        metrics.incrementAuthFailures();
+        throw new StatusCodeError("unable to delete a store", 403);
+      }
+      metrics.incrementAuthSuccesses();
+      const storeId = Number(req.params.storeId);
+      await DB.deleteStore(franchiseId, storeId);
+      res.json({ message: "store deleted" });
+    } catch (error) {
+      Logger.log("error", "error", { message: error.message });
+      res
+        .status(error.statusCode || 500)
+        .json({
+          message:
+            error.message || "An error occurred while deleting the store",
+        });
     }
-    metrics.incrementAuthSuccesses();
-    const storeId = Number(req.params.storeId);
-    await DB.deleteStore(franchiseId, storeId);
-    res.json({ message: "store deleted" });
   }),
 );
 

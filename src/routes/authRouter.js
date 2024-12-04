@@ -96,24 +96,31 @@ authRouter.authenticateToken = (req, res, next) => {
 authRouter.post(
   "/",
   asyncHandler(async (req, res) => {
-    const { name, email, password } = req.body;
-    metrics.incrementRequests("POST");
-    if (!name || !email || !password) {
-      metrics.incrementAuthFailures();
-      return res
-        .status(400)
-        .json({ message: "name, email, and password are required" });
+    try {
+      const { name, email, password } = req.body;
+      metrics.incrementRequests("POST");
+      if (!name || !email || !password) {
+        metrics.incrementAuthFailures();
+        return res
+          .status(400)
+          .json({ message: "name, email, and password are required" });
+      }
+      const user = await DB.addUser({
+        name,
+        email,
+        password,
+        roles: [{ role: Role.Diner }],
+      });
+      const auth = await setAuth(user);
+      metrics.updateActiveUsers(auth);
+      metrics.incrementAuthSuccesses();
+      res.json({ user: user, token: auth });
+    } catch (error) {
+      Logger.log("error", "error", { message: error.message });
+      res
+        .status(500)
+        .json({ message: "An error occurred during registration" });
     }
-    const user = await DB.addUser({
-      name,
-      email,
-      password,
-      roles: [{ role: Role.Diner }],
-    });
-    const auth = await setAuth(user);
-    metrics.updateActiveUsers(auth);
-    metrics.incrementAuthSuccesses();
-    res.json({ user: user, token: auth });
   }),
 );
 
@@ -121,13 +128,18 @@ authRouter.post(
 authRouter.put(
   "/",
   asyncHandler(async (req, res) => {
-    metrics.incrementRequests("PUT");
-    const { email, password } = req.body;
-    const user = await DB.getUser(email, password);
-    const auth = await setAuth(user);
-    metrics.updateActiveUsers(auth);
-    metrics.incrementAuthSuccesses();
-    res.json({ user: user, token: auth });
+    try {
+      metrics.incrementRequests("PUT");
+      const { email, password } = req.body;
+      const user = await DB.getUser(email, password);
+      const auth = await setAuth(user);
+      metrics.updateActiveUsers(auth);
+      metrics.incrementAuthSuccesses();
+      res.json({ user: user, token: auth });
+    } catch (error) {
+      Logger.log("error", "error", { message: error.message });
+      res.status(500).json({ message: "An error occurred during login" });
+    }
   }),
 );
 
@@ -136,23 +148,31 @@ authRouter.delete(
   "/",
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    metrics.incrementRequests("DELETE");
-    await clearAuth(req);
-    res.json({ message: "logout successful" });
+    try {
+      metrics.incrementRequests("DELETE");
+      await clearAuth(req);
+      res.json({ message: "logout successful" });
+    } catch (error) {
+      Logger.log("error", "error", { message: error.message });
+      res.status(500).json({ message: "An error occurred during logout" });
+    }
   }),
 );
 
-//// Enable and disable chaos/////
+// Enable and disable chaos
 authRouter.put(
   "/chaos/:state",
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    // if (!req.user.isRole(Role.Admin)) {
-    //   throw new StatusCodeError("unknown endpoint", 404);
-    // }
-
-    let enableChaos = req.params.state === "true";
-    res.json({ chaos: enableChaos });
+    try {
+      let enableChaos = req.params.state === "true";
+      res.json({ chaos: enableChaos });
+    } catch (error) {
+      Logger.log("error", "error", { message: error.message });
+      res
+        .status(500)
+        .json({ message: "An error occurred while toggling chaos" });
+    }
   }),
 );
 
@@ -161,17 +181,24 @@ authRouter.put(
   "/:userId",
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    metrics.incrementRequests("PUT");
-    const { email, password } = req.body;
-    const userId = Number(req.params.userId);
-    const user = req.user;
-    if (user.id !== userId && !user.isRole(Role.Admin)) {
-      metrics.incrementAuthFailures();
-      return res.status(403).json({ message: "unauthorized" });
+    try {
+      metrics.incrementRequests("PUT");
+      const { email, password } = req.body;
+      const userId = Number(req.params.userId);
+      const user = req.user;
+      if (user.id !== userId && !user.isRole(Role.Admin)) {
+        metrics.incrementAuthFailures();
+        return res.status(403).json({ message: "unauthorized" });
+      }
+      metrics.incrementAuthSuccesses();
+      const updatedUser = await DB.updateUser(userId, email, password);
+      res.json(updatedUser);
+    } catch (error) {
+      Logger.log("error", "error", { message: error.message });
+      res
+        .status(500)
+        .json({ message: "An error occurred while updating the user" });
     }
-    metrics.incrementAuthSuccesses();
-    const updatedUser = await DB.updateUser(userId, email, password);
-    res.json(updatedUser);
   }),
 );
 
