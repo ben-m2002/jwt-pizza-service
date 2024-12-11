@@ -86,10 +86,8 @@ orderRouter.get(
   "/menu",
   asyncHandler(async (req, res) => {
     try {
-      metrics.incrementRequests("GET");
       res.send(await DB.getMenu());
-    } catch (error) {
-      Logger.log("error", "error", { message: error.message });
+    } catch {
       res
         .status(500)
         .json({ message: "An error occurred while fetching the menu" });
@@ -103,24 +101,16 @@ orderRouter.put(
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     try {
-      metrics.incrementRequests("PUT");
-      metrics.updateActiveUsers(authRouter.authenticateToken);
       if (!req.user.isRole(Role.Admin)) {
-        metrics.incrementAuthFailures();
         throw new StatusCodeError("unable to add menu item", 403);
       }
-      metrics.incrementAuthSuccesses();
       const addMenuItemReq = req.body;
       await DB.addMenuItem(addMenuItemReq);
       res.send(await DB.getMenu());
     } catch (error) {
-      Logger.log("error", "error", { message: error.message });
-      res
-        .status(error.statusCode || 500)
-        .json({
-          message:
-            error.message || "An error occurred while adding a menu item",
-        });
+      res.status(error.statusCode || 500).json({
+        message: error.message || "An error occurred while adding a menu item",
+      });
     }
   }),
 );
@@ -131,11 +121,8 @@ orderRouter.get(
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     try {
-      metrics.incrementRequests("GET");
-      metrics.updateActiveUsers(authRouter.authenticateToken);
       res.json(await DB.getOrders(req.user, req.query.page));
-    } catch (error) {
-      Logger.log("error", "error", { message: error.message });
+    } catch {
       res
         .status(500)
         .json({ message: "An error occurred while fetching orders" });
@@ -149,8 +136,6 @@ orderRouter.post(
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     try {
-      metrics.incrementRequests("POST");
-      metrics.updateActiveUsers(authRouter.authenticateToken);
       const orderReq = req.body;
       const order = await DB.addDinerOrder(req.user, orderReq);
       const r = await fetch(`${config.factory.url}/api/order`, {
@@ -169,20 +154,15 @@ orderRouter.post(
         }),
       });
       const j = await r.json();
-      Logger.log("info", "FactoryOrder", { order, j, jwt: j.jwt });
       if (r.ok) {
-        metrics.updatePizzasSold(order.items.length);
-        metrics.updateRevenue(0.004);
         res.send({ order, jwt: j.jwt, reportUrl: j.reportUrl });
       } else {
-        metrics.incrementCreationFailed();
         res.status(500).send({
           message: "Failed to fulfill order at factory",
           reportUrl: j.reportUrl,
         });
       }
-    } catch (error) {
-      Logger.log("error", "error", { message: error.message });
+    } catch {
       res
         .status(500)
         .json({ message: "An error occurred while creating the order" });
