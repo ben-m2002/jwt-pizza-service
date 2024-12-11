@@ -178,6 +178,7 @@ class Metrics {
     //   .catch((error) => {
     //     console.error("Error pushing metrics:", error);
     //   });
+    console.log(metric);
   }
 }
 

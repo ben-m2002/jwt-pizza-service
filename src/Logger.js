@@ -90,6 +90,7 @@ class Logger {
     // }).then((res) => {
     //   if (!res.ok) console.log("Failed to send log to Grafana Loki");
     // });
+    console.log(body);
   }
 }
 module.exports = new Logger();
